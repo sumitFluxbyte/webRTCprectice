@@ -17,7 +17,7 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     socket.on("connect", () => {
-      setPeerId(socket.id);
+      setPeerId(socket.id??"");
     });
 
     socket.on("offer", async (data: { offer: RTCSessionDescriptionInit; from: string }) => {
