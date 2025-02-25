@@ -18,7 +18,7 @@ const WebRTCChat: React.FC = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<FileList|null>(null);
   const [chat, setChat] = useState<string[]>([]);
 
   useEffect(() => {
@@ -36,6 +36,8 @@ const WebRTCChat: React.FC = () => {
     // Handle incoming messages
     channel.onmessage = async (event) => {
       const data= event.data
+      console.log('event.data',event.data);
+      
       setChat((prevChat) => [...prevChat, `Peer: ${data}`]);
     };
 
@@ -86,12 +88,32 @@ const WebRTCChat: React.FC = () => {
   };
 
   const sendMessage = () => {
-    if (dataChannel && message.trim() !== "") {
-      dataChannel.send(message);
-      setChat((prevChat) => [...prevChat, `You: ${message}`]);
-      setMessage("");
+    if (dataChannel) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const fileData = reader.result as ArrayBuffer;
+        dataChannel.send(fileData);
+      };
+      if (message) {
+        reader.readAsArrayBuffer(message[0]);
+      }
     }
   };
+  const downloadFile = (arrayBuffer: ArrayBuffer, fileName = "downloaded_file.bin") => {
+    console.log("arrayBuffer", arrayBuffer);
+  
+    const blob = new Blob([arrayBuffer]); // Create a Blob from ArrayBuffer
+    const url = URL.createObjectURL(blob); // Generate a URL
+  
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName; // ✅ Set file name to force download
+    document.body.appendChild(a);
+    a.click(); // Trigger the download
+    document.body.removeChild(a); // Clean up
+    URL.revokeObjectURL(url); // Release memory
+  };
+  
 
   return (
     <div>
@@ -99,13 +121,16 @@ const WebRTCChat: React.FC = () => {
       <button onClick={startConnection}>Start Chat</button>
       <div style={{ border: "1px solid #ddd", padding: "10px", height: "200px", overflowY: "scroll" }}>
         {chat.map((msg, index) => (
-          <div key={index}>{msg}</div>
+          <div key={index}>{msg} 
+          <div onClick={()=>downloadFile(msg as unknown as ArrayBuffer)}>
+          downloadFile
+          </div>
+          </div> 
         ))}
       </div>
       <input 
-        type="text" 
-        value={message} 
-        onChange={(e) => setMessage(e.target.value)} 
+        type="file" 
+        onChange={(e) => setMessage(e.target.files)} 
         placeholder="Type a message..." 
       />
       <button onClick={sendMessage}>Send</button>
