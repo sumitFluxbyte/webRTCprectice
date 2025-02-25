@@ -22,59 +22,81 @@ const WebRTCChat: React.FC = () => {
   const [chat, setChat] = useState<string[]>([]);
 
   useEffect(() => {
-    // Create WebSocket connection
-    const websocket = new WebSocket(WS_SERVER_URL);
-    setWs(websocket);
+    let isMounted = true;
 
-    // Create WebRTC Peer Connection
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const initializeConnection = async () => {
+      try {
+        // Wake up Render server
+        await fetch("https://webrtcprectice.onrender.com/");
 
-    // Create a Data Channel for messaging
-    const channel = pc.createDataChannel("chat");
-    setDataChannel(channel);
+        // Initialize WebSocket connection
+        const websocket = new WebSocket(WS_SERVER_URL);
+        websocket.onopen = () => console.log("Connected to WebSocket Server");
+        websocket.onerror = (err) => console.error("WebSocket Error:", err);
+        websocket.onclose = () => console.log("WebSocket closed");
 
-    // Handle incoming messages
-    channel.onmessage = async (event) => {
-      const data= event.data
-      setChat((prevChat) => [...prevChat, `Peer: ${data}`]);
-    };
+        if (!isMounted) return;
+        setWs(websocket);
 
-    websocket.onopen = () => console.log("Connected to WebSocket Server");
+        // Create WebRTC Peer Connection
+        const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
-    websocket.onmessage = async (event) => {
-      
-      const data = JSON.parse( await event.data.text());
+        // Create a Data Channel
+        const channel = pc.createDataChannel("chat");
+        if (isMounted) setDataChannel(channel);
 
-      if (data.type === "offer") {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        websocket.send(JSON.stringify({ type: "answer", answer }));
-      } else if (data.type === "answer") {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-      } else if (data.type === "ice-candidate" && data.candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        channel.onmessage = (event) => {
+          if (isMounted) {
+            setChat((prevChat) => [...prevChat, `Peer: ${event.data}`]);
+          }
+        };
+
+        websocket.onmessage = async (event) => {
+          try {
+            const data = JSON.parse(await event.data.text());
+
+            if (data.type === "offer") {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              websocket.send(JSON.stringify({ type: "answer", answer }));
+            } else if (data.type === "answer") {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if (data.type === "ice-candidate" && data.candidate) {
+              await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+          } catch (error) {
+            console.error("Error processing WebSocket message:", error);
+          }
+        };
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate && websocket.readyState === WebSocket.OPEN) {
+            websocket.send(JSON.stringify({ type: "ice-candidate", candidate: event.candidate }));
+          }
+        };
+
+        pc.ondatachannel = (event) => {
+          event.channel.onmessage = (e) => {
+            if (isMounted) {
+              setChat((prevChat) => [...prevChat, `Peer: ${e.data}`]);
+            }
+          };
+          if (isMounted) setDataChannel(event.channel);
+        };
+
+        if (isMounted) setPeerConnection(pc);
+      } catch (error) {
+        console.error("Initialization error:", error);
       }
     };
 
-    pc.onicecandidate = (event) => {
-      if (event.candidate && websocket.readyState === WebSocket.OPEN) {
-        websocket.send(JSON.stringify({ type: "ice-candidate", candidate: event.candidate }));
-      }
-    };
-
-    pc.ondatachannel = (event) => {
-      event.channel.onmessage = (e) => {
-        setChat((prevChat) => [...prevChat, `Peer: ${e.data}`]);
-      };
-      setDataChannel(event.channel);
-    };
-
-    setPeerConnection(pc);
+    initializeConnection();
 
     return () => {
-      websocket.close();
-      pc.close();
+      isMounted = false;
+      if (ws) ws.close();
+      if (peerConnection) peerConnection.close();
     };
   }, []);
 
@@ -102,11 +124,11 @@ const WebRTCChat: React.FC = () => {
           <div key={index}>{msg}</div>
         ))}
       </div>
-      <input 
-        type="text" 
-        value={message} 
-        onChange={(e) => setMessage(e.target.value)} 
-        placeholder="Type a message..." 
+      <input
+        type="text"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type a message..."
       />
       <button onClick={sendMessage}>Send</button>
     </div>
