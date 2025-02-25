@@ -12,9 +12,9 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 // WebSocket signaling server URL
-const WS_SERVER_URL = "ws://192.168.29.227:5000";
+const WS_SERVER_URL = "wss://webrtcprectice.onrender.com";
 
-const WebRTCChat: React.FC = () => {
+const WebRTCFile: React.FC = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
@@ -138,4 +138,4 @@ const WebRTCChat: React.FC = () => {
   );
 };
 
-export default WebRTCChat;
+export default WebRTCFile;

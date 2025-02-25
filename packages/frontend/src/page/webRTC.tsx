@@ -12,7 +12,7 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 // WebSocket signaling server URL
-const WS_SERVER_URL = "ws://webrtcprectice.onrender.com";
+const WS_SERVER_URL = "wss://webrtcprectice.onrender.com";
 
 const WebRTCChat: React.FC = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
