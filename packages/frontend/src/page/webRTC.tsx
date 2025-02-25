@@ -12,7 +12,7 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 // WebSocket signaling server URL
-const WS_SERVER_URL = "ws://192.168.29.227:5000";
+const WS_SERVER_URL = "ws://webrtcchatbackend.vercel.app";
 
 const WebRTCChat: React.FC = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
